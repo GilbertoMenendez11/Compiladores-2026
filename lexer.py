@@ -6,9 +6,7 @@ PROYECTO FINAL: COMPILADORES - FASE 1 (VERSIÓN PYTHON)
 import re
 from typing import NamedTuple
 
-# ==============================================================================
 # 1. ESTRUCTURAS DE DATOS
-# ==============================================================================
 
 
 class Token(NamedTuple):
@@ -29,9 +27,7 @@ class LexicalError(NamedTuple):
     column: int
 
 
-# ==============================================================================
 # 2. CLASE PRINCIPAL DEL ANALIZADOR LÉXICO
-# ==============================================================================
 
 
 class PythonLexer:
