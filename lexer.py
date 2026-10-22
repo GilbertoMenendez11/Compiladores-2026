@@ -1,6 +1,6 @@
 """
 MÓDULO: lexer.py
-PROYECTO FINAL: COMPILADORES - FASE 1 (VERSIÓN PYTHON)
+PROYECTO FINAL: COMPILADORES - FASE 1 Análisis Léxico
 """
 
 import re
