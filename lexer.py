@@ -66,9 +66,11 @@ class PythonLexer:
         "True": "PR_TRUE",
         "False": "PR_FALSE",
         "None": "PR_NONE",
-        "and": "PR_AND",
-        "or": "PR_OR",
-        "not": "PR_NOT",
+        "and": "OP_LOGIC",
+        "or": "OP_LOGIC",
+        "not": "OP_LOGIC",
+        "is": "OP_LOGIC",
+        "in": "OP_LOGIC",
     }
 
     def __init__(self, code: str):
