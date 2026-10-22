@@ -37,7 +37,7 @@ class PythonLexer:
     """
 
     # Definimos los patrones en orden de prioridad (Maximal Munch)
-    TOKEN_SPECIFICATION = [
+    TOKEN_SPECIFICATION = [  # noqa: RUF012
         ("NEWLINE", r"\n"),
         ("COMMENT", r"#.*"),
         ("FLOAT_LITERAL", r"\d+\.\d+"),
@@ -54,7 +54,7 @@ class PythonLexer:
     ]
 
     # Mapeo de palabras reservadas
-    KEYWORD_MAP = {
+    KEYWORD_MAP = {  # noqa: RUF012
         "def": "PR_DEF",
         "if": "PR_IF",
         "elif": "PR_ELIF",
