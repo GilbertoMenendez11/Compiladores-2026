@@ -1,0 +1,3 @@
+edad = 21 $
+precio = 10 & 5
+total = 8 ? 2
