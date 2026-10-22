@@ -44,6 +44,7 @@ class PythonLexer:
         ("INT_LITERAL", r"\d+"),
         # Soporta comillas dobles y simples
         ("STRING_LITERAL", r'"[^"\\]*(\\.[^"\\]*)*"|\'[^\'\\]*(\\.[^\'\\]*)*\''),
+        ("UNCLOSED_STRING", r'"[^"\n]*'),
         ("OP_REL", r"==|!=|<=|>=|<|>"),
         ("OP_ASSIGN", r"\+=|-=|\*=|/=|//=|%=|="),
         ("OP_ARITH", r"\*\*|//|[+\-*/%]"),
@@ -150,6 +151,11 @@ class PythonLexer:
                 # Regla de Preferencia de Palabra Reservada
                 kind = self.KEYWORD_MAP.get(value, "ID")
                 tokens.append(Token(kind, value, line_num, col_num))
+
+            elif kind == "UNCLOSED_STRING":
+                errors.append(
+                    LexicalError("Cadena sin cerrar", value, line_num, col_num)
+                )
 
             elif kind == "MISMATCH":
                 errors.append(
