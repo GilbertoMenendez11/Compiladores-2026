@@ -50,7 +50,7 @@ class PythonLexer:
         ("STRING_LITERAL", r'"[^"\\]*(\\.[^"\\]*)*"|\'[^\'\\]*(\\.[^\'\\]*)*\''),
         ("OP_REL", r"==|!=|<=|>=|<|>"),
         ("OP_ASSIGN", r"="),
-        ("OP_ARITH", r"[+\-*/%]"),
+        ("OP_ARITH", r"\*\*|//|[+\-*/%]"),
         ("DELIM", r"[()\[\]{},:;.@]"),
         ("ID", r"[a-zA-Z_][a-zA-Z0-9_]*"),
         ("SKIP", r"[ \t]+"),  # Espacios en blanco
