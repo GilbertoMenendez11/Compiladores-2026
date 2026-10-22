@@ -3,3 +3,6 @@ precio = 10 & 5
 total = 8 ? 2
 
 
+# Prueba adicional: cadena sin cerrar (desactivada)
+# nombre = "Jennifer
+# edad = 21
