@@ -95,7 +95,7 @@ class Parser:
         if self.current_token.type != token_type:
             return False
 
-        if value is not None and self.current_token.value != value:
+        if value is not None and self.current_token.value != value:  # noqa: SIM103
             return False
 
         return True
