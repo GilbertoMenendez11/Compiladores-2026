@@ -4,7 +4,7 @@ PROYECTO FINAL: COMPILADORES - FASE 2
 ANÁLISIS SINTÁCTICO
 """
 
-# Nodos del árbol de sintaxis abstracta
+# 1. NODOS DEL ÁRBOL DE SINTAXIS ABSTRACTA (AST)
 
 
 class ASTNode:
@@ -45,6 +45,15 @@ class BinOpNode(ASTNode):
         return f"BinOp({self.left}, '{self.op.value}', {self.right})"
 
 
+class UnaryOpNode(ASTNode):
+    def __init__(self, op, expr):
+        self.op = op
+        self.expr = expr
+
+    def __repr__(self):
+        return f"UnaryOp('{self.op.value}', {self.expr})"
+
+
 class AssignNode(ASTNode):
     def __init__(self, var_node, expr):
         self.var_node = var_node
@@ -54,18 +63,22 @@ class AssignNode(ASTNode):
         return f"Assign({self.var_node}, {self.expr})"
 
 
-# Analizador sintáctico
+# 2. ANALIZADOR SINTÁCTICO
 
 
 class Parser:
 
     def __init__(self, tokens):
-        self.tokens = tokens
+        # Ignorar tokens de espacios estructurales
+        self.tokens = [
+            token
+            for token in tokens
+            if token.type not in ("NEWLINE", "INDENT", "DEDENT")
+        ]
         self.pos = 0
         self.current_token = self.tokens[self.pos] if self.tokens else None
 
     # Avanza al siguiente token
-
     def advance(self):
         self.pos += 1
 
@@ -74,35 +87,43 @@ class Parser:
         else:
             self.current_token = None
 
-    # Ignora saltos de línea e indentación
+    # Verifica el tipo y valor de un token
+    def check(self, token_type, value=None):
+        if self.current_token is None:
+            return False
 
-    def consume_newlines(self):
-        while self.current_token and self.current_token.type in (
-            "NEWLINE",
-            "INDENT",
-            "DEDENT",
-        ):
-            self.advance()
+        if self.current_token.type != token_type:
+            return False
+
+        if value is not None and self.current_token.value != value:
+            return False
+
+        return True
+
+    # Genera errores sintácticos
+    def syntax_error(self, message):
+        if self.current_token:
+            raise SyntaxError(
+                f"{message} en línea {self.current_token.line}, "
+                f"columna {self.current_token.column}"
+            )
+
+        raise SyntaxError(f"{message} al final del archivo")
 
     # Inicia el análisis sintáctico
-
     def parse(self):
         statements = []
 
-        self.consume_newlines()
-
         while self.current_token is not None:
             statements.append(self.parse_statement())
-            self.consume_newlines()
 
         return statements
 
-    # Reconoce una asignación o una expresión
-
+    # Reconoce asignaciones o expresiones
     def parse_statement(self):
 
         if (
-            self.current_token.type == "ID"
+            self.check("ID")
             and self.pos + 1 < len(self.tokens)
             and self.tokens[self.pos + 1].type == "OP_ASSIGN"
         ):
@@ -117,56 +138,67 @@ class Parser:
 
         return self.parse_expression()
 
-    # Reconoce operaciones de suma y resta
-
+    # Suma y resta
     def parse_expression(self):
-
         left = self.parse_term()
 
-        while (
-            self.current_token
-            and self.current_token.type == "OP_ARITH"
-            and self.current_token.value in ("+", "-")
-        ):
-            op_token = self.current_token
-
+        while self.check("OP_ARITH") and self.current_token.value in ("+", "-"):
+            op = self.current_token
             self.advance()
 
             right = self.parse_term()
-
-            left = BinOpNode(left, op_token, right)
+            left = BinOpNode(left, op, right)
 
         return left
 
-    # Reconoce operaciones de multiplicación, división y módulo
-
+    # Multiplicación, división, módulo y división entera
     def parse_term(self):
-
         left = self.parse_factor()
 
-        while (
-            self.current_token
-            and self.current_token.type == "OP_ARITH"
-            and self.current_token.value in ("*", "/", "%")
+        while self.check("OP_ARITH") and self.current_token.value in (
+            "*",
+            "/",
+            "%",
+            "//",
         ):
-            op_token = self.current_token
-
+            op = self.current_token
             self.advance()
 
             right = self.parse_factor()
-
-            left = BinOpNode(left, op_token, right)
+            left = BinOpNode(left, op, right)
 
         return left
 
-    # Reconoce números, strings, identificadores y expresiones entre paréntesis
+    # Potencia
+    def parse_power(self):
+        left = self.parse_primary()
 
+        if self.check("OP_ARITH", "**"):
+            op = self.current_token
+            self.advance()
+
+            right = self.parse_factor()
+            left = BinOpNode(left, op, right)
+
+        return left
+
+    # Factor: operadores unarios y potencia
     def parse_factor(self):
 
+        if self.check("OP_ARITH") and self.current_token.value in ("+", "-"):
+            op = self.current_token
+            self.advance()
+
+            return UnaryOpNode(op, self.parse_factor())
+
+        return self.parse_power()
+
+    # Números, cadenas, variables y paréntesis
+    def parse_primary(self):
         token = self.current_token
 
         if token is None:
-            raise SyntaxError("Fin de archivo inesperado.")
+            self.syntax_error("Expresión incompleta")
 
         if token.type in ("INT_LITERAL", "FLOAT_LITERAL"):
             self.advance()
@@ -180,22 +212,15 @@ class Parser:
             self.advance()
             return VarNode(token)
 
-        if token.type == "DELIM" and token.value == "(":
-
+        if self.check("DELIM", "("):
             self.advance()
 
             expr = self.parse_expression()
 
-            if (
-                self.current_token
-                and self.current_token.type == "DELIM"
-                and self.current_token.value == ")"
-            ):
-                self.advance()
-                return expr
+            if not self.check("DELIM", ")"):
+                self.syntax_error("Falta ')'")
 
-            raise SyntaxError(f"Falta ')' en la línea {token.line}")
+            self.advance()
+            return expr
 
-        raise SyntaxError(
-            f"Sintaxis inválida cerca de '{token.value}' " f"en la línea {token.line}"
-        )
+        self.syntax_error(f"Sintaxis inválida cerca de '{token.value}'")
