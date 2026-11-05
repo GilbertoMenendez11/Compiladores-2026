@@ -1,6 +1,6 @@
 import sys
 
-from lexer import PythonLexer
+from lexer import Lexer
 from parser import Parser
 
 
@@ -20,7 +20,7 @@ def main():
 
     print("-----FASE 1: ANÁLISIS LÉXICO-----")
 
-    lexer = PythonLexer(codigo)
+    lexer = Lexer(codigo)
     tokens, errores = lexer.tokenize()
 
     for token in tokens:
@@ -32,8 +32,8 @@ def main():
 
     for error in errores:
         print(
-            f"[ERROR LÉXICO] {error.message}: '{error.char}' "
-            f"en [Línea {error.line}, Col {error.column}]"
+            f"[ERROR LÉXICO] {error.message} '{error.char}' "
+            f"en Posición: [Línea {error.line}, Col {error.column}]"
         )
 
     if errores:
