@@ -30,31 +30,28 @@ class LexicalError(NamedTuple):
 # 2. CLASE PRINCIPAL DEL ANALIZADOR LÉXICO
 
 
-class PythonLexer:
+class Lexer:  # Cambiado de PythonLexer a Lexer para compatibilidad con main.py
     """
     Analizador Léxico (Scanner) para un subconjunto de Python.
     Maneja la detección de tokens y la indentación estricta (INDENT/DEDENT).
     """
 
-    # Definimos los patrones en orden de prioridad (Maximal Munch)
     TOKEN_SPECIFICATION = [  # noqa: RUF012
         ("NEWLINE", r"\n"),
         ("COMMENT", r"#.*"),
         ("FLOAT_LITERAL", r"\d+\.\d+"),
         ("INT_LITERAL", r"\d+"),
-        # Soporta comillas dobles y simples
         ("STRING_LITERAL", r'"[^"\\]*(\\.[^"\\]*)*"|\'[^\'\\]*(\\.[^\'\\]*)*\''),
-        ("UNCLOSED_STRING", r'"[^"\n]*'),
+        ("UNCLOSED_STRING", r'"[^"\n]*|\'[^\'\n]*'),
         ("OP_REL", r"==|!=|<=|>=|<|>"),
         ("OP_ASSIGN", r"\+=|-=|\*=|/=|//=|%=|="),
         ("OP_ARITH", r"\*\*|//|[+\-*/%]"),
         ("DELIM", r"[()\[\]{},:;.@]"),
         ("ID", r"[a-zA-Z_][a-zA-Z0-9_]*"),
-        ("SKIP", r"[ \t]+"),  # Espacios en blanco
-        ("MISMATCH", r"."),  # Comodín para errores
+        ("SKIP", r"[ \t]+"),
+        ("MISMATCH", r"."),
     ]
 
-    # Mapeo de palabras reservadas
     KEYWORD_MAP = {  # noqa: RUF012
         "def": "PR_DEF",
         "if": "PR_IF",
@@ -72,6 +69,8 @@ class PythonLexer:
         "not": "OP_LOGIC",
         "is": "OP_LOGIC",
         "in": "OP_LOGIC",
+        "int": "PR_INT",
+        "float": "PR_FLOAT",
     }
 
     def __init__(self, code: str):
