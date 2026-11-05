@@ -1,8 +1,29 @@
-edad = 21 $
-precio = 10 & 5
-total = 8 ? 2
+#edad = 21 $
+#precio = 10 & 5
+#total = 8 ? 2
 
 
 # Prueba adicional: cadena sin cerrar (desactivada)
 # nombre = "Jennifer
 # edad = 21
+
+
+// 1. Falta el ';' al final
+int x = 10
+
+// 2. Paréntesis de cierre faltante en el if
+if (x > 5 {
+    x = x + 1;
+}
+
+// 3. Expresión mal formada (empieza con un operador)
+y = * 3;
+
+// 4. Un 'else' perdido (sin 'if')
+else {
+    y = 0;
+}
+
+// 5. Llave de cierre faltante en la función
+void incompleta() {
+    int a = 1;
