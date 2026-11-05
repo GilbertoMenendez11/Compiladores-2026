@@ -36,20 +36,32 @@ def main():
             f"en Posición: [Línea {error.line}, Col {error.column}]"
         )
 
+    # Si hay errores léxicos, el programa se detiene aquí y no pasa a la Fase 2
     if errores:
         return
 
     print("\n-----FASE 2: ANÁLISIS SINTÁCTICO-----")
 
-    try:
-        parser = Parser(tokens)
-        ast = parser.parse()
+    # Instanciamos el parser con los tokens obtenidos en la Fase 1
+    parser = Parser(tokens)
 
-        print("AST generado:")
-        for nodo in ast:
-            print(nodo)
-    except SyntaxError as error:
-        print(f"Error sintáctico: {error}")
+    # Ejecutamos el análisis sintáctico (ahora devuelve el AST y los errores)
+    ast, errores_sintacticos = parser.parse()
+
+    # Evaluamos si el parser reportó errores recuperados (Modo Pánico)
+    if errores_sintacticos:
+        for error in errores_sintacticos:
+            print(
+                f"[ERROR SINTÁCTICO] {error.message} "
+                f"en Posición: [Línea {error.line}, Col {error.column}]"
+            )
+        print(f"Errores sintácticos: {len(errores_sintacticos)}")
+    else:
+        print("Análisis sintáctico completado sin errores.")
+        # Imprime el Árbol de Sintaxis Abstracta con el formato de sangría del template
+        print(ast.pretty())
+        print("Errores sintácticos: 0")
+        print("Resultado: COMPILACIÓN EXITOSA")
 
 
 if __name__ == "__main__":

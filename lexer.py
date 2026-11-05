@@ -30,14 +30,16 @@ class LexicalError(NamedTuple):
 # 2. CLASE PRINCIPAL DEL ANALIZADOR LÉXICO
 
 
-class Lexer:  # Cambiado de PythonLexer a Lexer para compatibilidad con main.py
+class Lexer:
     """
-    Analizador Léxico (Scanner) para un subconjunto de Python.
-    Maneja la detección de tokens y la indentación estricta (INDENT/DEDENT).
+    Analizador Léxico (Scanner).
+    Transforma una cadena de código fuente en una lista de Tokens y Errores Léxicos.
     """
 
     TOKEN_SPECIFICATION = [  # noqa: RUF012
         ("NEWLINE", r"\n"),
+        ("COMMENT_MULTI", r"/\*[\s\S]*?\*/"),
+        ("COMMENT_SINGLE", r"//.*"),
         ("COMMENT", r"#.*"),
         ("FLOAT_LITERAL", r"\d+\.\d+"),
         ("INT_LITERAL", r"\d+"),
@@ -71,6 +73,8 @@ class Lexer:  # Cambiado de PythonLexer a Lexer para compatibilidad con main.py
         "in": "OP_LOGIC",
         "int": "PR_INT",
         "float": "PR_FLOAT",
+        "void": "PR_VOID",
+        "string": "PR_STRING",
     }
 
     def __init__(self, code: str):
@@ -85,12 +89,6 @@ class Lexer:  # Cambiado de PythonLexer a Lexer para compatibilidad con main.py
         tokens: list[Token] = []
         errors: list[LexicalError] = []
 
-        indent_stack = [0]
-        current_indent = 0
-        at_line_start = (
-            True  # Bandera para capturar los espacios iniciales de cada línea
-        )
-
         line_num = 1
         line_start = 0
 
@@ -102,48 +100,19 @@ class Lexer:  # Cambiado de PythonLexer a Lexer para compatibilidad con main.py
 
             # 1. Manejo de saltos de línea
             if kind == "NEWLINE":
-                tokens.append(Token(kind, value, line_num, col_num))
-                at_line_start = True
-                current_indent = 0
                 line_start = mo.end()
                 line_num += 1
                 continue
 
-            # 2. Manejo de indentación al inicio de la línea
-            if at_line_start:
-                if kind == "SKIP":
-                    # Contamos los espacios (asumiendo 1 tab = 4 espacios)
-                    current_indent += len(value.replace("\t", "    "))
-                    continue
-                elif kind == "COMMENT":
-                    # Los comentarios no afectan la indentación ni emiten tokens
-                    continue
-                else:
-                    # Llegamos al primer token real de la línea, evaluamos la indentación
-                    if current_indent > indent_stack[-1]:
-                        indent_stack.append(current_indent)
-                        tokens.append(Token("INDENT", "", line_num, 1))
-                    elif current_indent < indent_stack[-1]:
-                        while current_indent < indent_stack[-1]:
-                            indent_stack.pop()
-                            tokens.append(Token("DEDENT", "", line_num, 1))
-                        # Si al sacar elementos no coincide exactamente, hay un error de indentación
-                        if current_indent != indent_stack[-1]:
-                            errors.append(
-                                LexicalError(
-                                    "IndentationError",
-                                    "Nivel de indentación inconsistente",
-                                    line_num,
-                                    1,
-                                )
-                            )
+            elif kind == "COMMENT_MULTI":
+                newlines = value.count("\n")
+                if newlines > 0:
+                    line_num += newlines
+                    line_start = position + value.rfind("\n") + 1
+                continue
 
-                    at_line_start = (
-                        False  # Apagamos la bandera para el resto de la línea
-                    )
-
-            # 3. Procesamiento normal de tokens (si no estamos al inicio o ya pasamos la indentación)
-            if kind == "SKIP" or kind == "COMMENT":
+            # 3. Procesamiento normal de tokens
+            elif kind in ("SKIP", "COMMENT", "COMMENT_SINGLE"):
                 continue
 
             elif kind == "ID":
@@ -164,10 +133,5 @@ class Lexer:  # Cambiado de PythonLexer a Lexer para compatibilidad con main.py
             else:
                 # Cualquier otro token válido (números, operadores, strings, delimitadores)
                 tokens.append(Token(kind, value, line_num, col_num))
-
-        # 4. Al finalizar el código, debemos emitir DEDENTs restantes si la pila no está vacía
-        while len(indent_stack) > 1:
-            indent_stack.pop()
-            tokens.append(Token("DEDENT", "", line_num, 1))
 
         return tokens, errors

@@ -1,3 +1,41 @@
-edad = 21
-precio = 10.5
-total = edad + precio
+#edad = 21
+#precio = 10.5
+#total = edad + precio
+
+
+/* Programa de prueba válido
+   Calcula factorial y suma de pares */
+
+int limite = 10;
+float tasa = 0.5, total;
+string mensaje = "Resultado: ";
+
+int factorial(int n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+int sumaPares(int max) {
+    int suma = 0;
+    int i;
+    for (i = 0; i <= max; i = i + 1) {
+        if (i - (i / 2) * 2 == 0)
+            suma = suma + i;
+    }
+    return suma;
+}
+
+void main() {
+    int x = factorial(5);   // 120
+    int y = sumaPares(limite);
+    total = (x + y) * tasa - -1;
+    while (x != 0) {
+        x = x - 1;
+    }
+    for (int k = 0; k < 3; k = k + 1) ;
+    imprimir(mensaje, total);
+    return;
+}
