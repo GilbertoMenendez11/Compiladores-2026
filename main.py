@@ -1,7 +1,7 @@
 import sys
 
 from lexer import Lexer
-from parser import Parser
+from lexer import PythonLexer as Lexer
 
 
 def main():
