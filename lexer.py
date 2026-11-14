@@ -1,6 +1,6 @@
 """
 MÓDULO: lexer.py
-PROYECTO FINAL: COMPILADORES - FASE 1 Análisis Léxico
+PROYECTO FINAL: COMPILADORES - FASE 1 Análisis Léxico (Con Indentación)
 """
 
 import re
@@ -33,7 +33,8 @@ class LexicalError(NamedTuple):
 class Lexer:
     """
     Analizador Léxico (Scanner).
-    Transforma una cadena de código fuente en una lista de Tokens y Errores Léxicos.
+    Transforma una cadena de código fuente en una lista de Tokens y Errores Léxicos
+    incluyendo soporte para NEWLINE, INDENT y DEDENT.
     """
 
     TOKEN_SPECIFICATION = [  # noqa: RUF012
@@ -79,7 +80,6 @@ class Lexer:
 
     def __init__(self, code: str):
         self.code = code
-        # Compila la expresión regular combinando todos los grupos etiquetados
         tok_regex = "|".join(
             f"(?P<{pair[0]}>{pair[1]})" for pair in self.TOKEN_SPECIFICATION
         )
@@ -91,6 +91,9 @@ class Lexer:
 
         line_num = 1
         line_start = 0
+        indent_stack = [0]
+        at_line_start = True
+        pending_indent = 0
 
         for mo in self.regex.finditer(self.code):
             kind = mo.lastgroup
@@ -98,10 +101,42 @@ class Lexer:
             position = mo.start()
             col_num = position - line_start + 1
 
-            # 1. Manejo de saltos de línea
+            if at_line_start:
+                if kind == "SKIP":
+                    pending_indent = len(value.replace('\t', '    '))
+                    continue
+                elif kind == "NEWLINE":
+                    line_start = mo.end()
+                    line_num += 1
+                    tokens.append(Token("NEWLINE", value, line_num - 1, col_num))
+                    continue
+                elif kind in ("COMMENT", "COMMENT_SINGLE", "COMMENT_MULTI"):
+                    if kind == "COMMENT_MULTI":
+                        newlines = value.count("\n")
+                        if newlines > 0:
+                            line_num += newlines
+                            line_start = position + value.rfind("\n") + 1
+                    continue
+                else:
+                    current_indent = indent_stack[-1]
+                    if pending_indent > current_indent:
+                        indent_stack.append(pending_indent)
+                        tokens.append(Token("INDENT", "", line_num, col_num))
+                    elif pending_indent < current_indent:
+                        while indent_stack[-1] > pending_indent:
+                            indent_stack.pop()
+                            tokens.append(Token("DEDENT", "", line_num, col_num))
+                        if indent_stack[-1] != pending_indent:
+                            errors.append(LexicalError("Error de indentación", "", line_num, col_num))
+                    at_line_start = False
+                    pending_indent = 0
+
             if kind == "NEWLINE":
                 line_start = mo.end()
                 line_num += 1
+                tokens.append(Token("NEWLINE", value, line_num - 1, col_num))
+                at_line_start = True
+                pending_indent = 0
                 continue
 
             elif kind == "COMMENT_MULTI":
@@ -111,12 +146,10 @@ class Lexer:
                     line_start = position + value.rfind("\n") + 1
                 continue
 
-            # 3. Procesamiento normal de tokens
             elif kind in ("SKIP", "COMMENT", "COMMENT_SINGLE"):
                 continue
 
             elif kind == "ID":
-                # Regla de Preferencia de Palabra Reservada
                 kind = self.KEYWORD_MAP.get(value, "ID")
                 tokens.append(Token(kind, value, line_num, col_num))
 
@@ -131,7 +164,10 @@ class Lexer:
                 )
 
             else:
-                # Cualquier otro token válido (números, operadores, strings, delimitadores)
                 tokens.append(Token(kind, value, line_num, col_num))
+
+        while len(indent_stack) > 1:
+            indent_stack.pop()
+            tokens.append(Token("DEDENT", "", line_num, 1))
 
         return tokens, errors
