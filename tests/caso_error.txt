@@ -1,29 +1,22 @@
-#edad = 21 $
-#precio = 10 & 5
-#total = 8 ? 2
+# --- PRUEBAS DE ERRORES LÉXICOS Y SINTÁCTICOS (Estilo Python) ---
 
+# 1. Error léxico (carácter no reconocido por el lexer)
+# precio = 10 & 5
 
-# Prueba adicional: cadena sin cerrar (desactivada)
-# nombre = "Jennifer
-# edad = 21
+# 2. Error sintáctico: Falta de dos puntos (:) en la definición de función
+def sumar(a, b)
+    return a + b
 
+# 3. Error sintáctico: Expresión mal formada (operador seguido de operador sin operando)
+x = 10 + * 5
 
-// 1. Falta el ';' al final
-int x = 10
+# 4. Error sintáctico: Lado izquierdo de asignación no válido (asignar a un literal)
+10 = y
 
-// 2. Paréntesis de cierre faltante en el if
-if (x > 5 {
-    x = x + 1;
-}
+# 5. Error sintáctico: Un 'else' sin un 'if' previo
+else:
+    y = 0
 
-// 3. Expresión mal formada (empieza con un operador)
-y = * 3;
-
-// 4. Un 'else' perdido (sin 'if')
-else {
-    y = 0;
-}
-
-// 5. Llave de cierre faltante en la función
-void incompleta() {
-    int a = 1;
+# 6. Error sintáctico: Bloque con indentación incorrecta o faltante
+if x > 5:
+x = x + 1
