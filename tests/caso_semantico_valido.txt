@@ -1,0 +1,15 @@
+# Programa para comprobar inferencia de tipos, funciones y ambitos
+limite = 10
+tasa = 0.5
+
+def sumar(a, b):
+    resultado = a + b
+    return resultado
+
+def principal():
+    subtotal = sumar(limite, 5)
+    total = subtotal * tasa
+    imprimir(total)
+    return
+
+principal()

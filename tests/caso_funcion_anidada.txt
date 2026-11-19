@@ -1,0 +1,7 @@
+def externa(x):
+    def interna(y):
+        return y + 1
+    resultado = interna(x)
+    return resultado
+
+valor = externa(3)
