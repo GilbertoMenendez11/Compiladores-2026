@@ -2,6 +2,7 @@ import sys
 
 from lexer import Lexer
 from parser import Parser
+from semantico import SemanticAnalyzer, format_table
 
 
 def main():
@@ -58,10 +59,29 @@ def main():
         print(f"Errores sintácticos: {len(errores_sintacticos)}")
     else:
         print("Análisis sintáctico completado sin errores.")
-        # Imprime el Árbol de Sintaxis Abstracta con el formato de sangría del template
+        # Imprime el Árbol de Sintaxis Abstracta.
         print(ast.pretty())
         print("Errores sintácticos: 0")
-        print("Resultado: COMPILACIÓN EXITOSA")
+
+        print("\n-----FASE 3: ANÁLISIS SEMÁNTICO-----")
+        semantic = SemanticAnalyzer()
+        tabla, errores_semanticos = semantic.analyze(ast)
+
+        print("\n-----TABLA DE SÍMBOLOS-----")
+        print(format_table(tabla))
+
+        if errores_semanticos:
+            for error in errores_semanticos:
+                print(
+                    f"[ERROR SEMÁNTICO] {error.message} "
+                    f"en Posición: [Línea {error.line}, Col {error.column}]"
+                )
+            print(f"Errores semánticos: {len(errores_semanticos)}")
+            print("Resultado: COMPILACIÓN CON ERRORES SEMÁNTICOS")
+        else:
+            print("Análisis semántico completado sin errores.")
+            print("Errores semánticos: 0")
+            print("Resultado: COMPILACIÓN EXITOSA")
 
 
 if __name__ == "__main__":
