@@ -78,8 +78,9 @@ class IntermediateCodeGenerator:
         self.current_return_type: str | None = None
         # Tipo de cada variable y temporal, por función ('' = código global).
         self.current_function = ""
-        self.types: Dict[str, Dict[str, str]] = {"": {}}  # noqa: F821
-        self.return_types: Dict[str, str] = {}  # noqa: F821
+        self.types: dict[str, dict[str, str]] = {"": {}}
+        self.return_types: dict[str, str] = {}
+        self.param_types: dict[str, list[str]] = {}
 
     # ---------- utilidades ----------
     @staticmethod
@@ -215,7 +216,8 @@ class IntermediateCodeGenerator:
         for n in ast.children:
             if n.kind != "Funcion":
                 self.statement(n)
-        if "main" in self.functions:
+        called_main = any(q.op == "call" and q.arg1 == "main" for q in self.code)
+        if "main" in self.functions and not called_main:
             self.emit("call", "main", "0")
         self.emit("halt")
         for f in self.function_list:
@@ -238,9 +240,14 @@ class IntermediateCodeGenerator:
         self.return_types[name] = ret_type
         self.scopes.append({})
 
-        param_ir_names: List[str] = []  # noqa: F821
-        for param in params_node.children:
-            p_type = self.concrete_type(getattr(param, "type", None))
+        param_ir_names: list[str] = []
+        inferred_params = self.param_types.get(name, [])
+        for i, param in enumerate(params_node.children):
+            p_type = (
+                inferred_params[i]
+                if i < len(inferred_params)
+                else self.concrete_type(getattr(param, "type", None))
+            )
             param_ir_names.append(self.declare(param.value, p_type))
 
         self.emit("func", name, ", ".join(param_ir_names))
@@ -401,14 +408,7 @@ class IntermediateCodeGenerator:
 
     def call(self, node: ASTNode, want_result: bool) -> str | None:
         func_name = node.value
-        func_node = self.functions.get(func_name)
-        param_types: List[str] = []  # noqa: F821
-        if func_node is not None:
-            params_node = func_node.children[0]
-            param_types = [
-                self.concrete_type(getattr(p, "type", None))
-                for p in params_node.children
-            ]
+        param_types = self.param_types.get(func_name, [])
 
         # Primero se evalúan todos los argumentos antes de emitir los 'param'.
         evaluated: list[str] = []
