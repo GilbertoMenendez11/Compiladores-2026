@@ -135,13 +135,18 @@ def binary_result(op: str, left: str, right: str) -> str:
     if op == "/" and left in (*NUMERIC, ANY) and right in (*NUMERIC, ANY):
         return "float"
 
+    if op == "%":
+        if left in ("int", ANY) and right in ("int", ANY):
+            return "int"
+        return ERROR
+
     if left == ANY or right == ANY:
-        if op in ("+", "-", "*", "%") and "float" in (left, right):
+        if op in ("+", "-", "*") and "float" in (left, right):
             return "float"
         return ANY
 
     if left in NUMERIC and right in NUMERIC:
-        if op in ("+", "-", "*", "%"):
+        if op in ("+", "-", "*"):
             return "float" if "float" in (left, right) else "int"
 
     return ERROR
