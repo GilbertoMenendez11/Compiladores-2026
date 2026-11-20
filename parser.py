@@ -5,7 +5,8 @@ Analizador Sintáctico Descendente Recursivo basado en indentación.
 """
 
 from typing import List, Optional, Tuple
-from lexer import Token, LexicalError
+from lexer import Token
+
 
 class ASTNode:
     def __init__(self, kind: str, value: Optional[str] = None,
@@ -27,6 +28,7 @@ class ASTNode:
             lines.append(child.pretty(child_prefix, i == len(self.children) - 1, False))
         return "\n".join(lines)
 
+
 class ParseError(Exception):
     def __init__(self, message: str, line: int, column: int):
         super().__init__(message)
@@ -34,8 +36,10 @@ class ParseError(Exception):
         self.line = line
         self.column = column
 
+
 LITERALS = {'INT_LITERAL': 'Entero', 'FLOAT_LITERAL': 'Flotante', 'STRING_LITERAL': 'Cadena'}
-STATEMENT_START = {'def', 'if', 'elif', 'else', 'while', 'for', 'return', 'print'}
+STATEMENT_START = {'def', 'if', 'elif', 'else', 'while', 'for', 'return'}
+
 
 class Parser:
     def __init__(self, tokens: List[Token]):
@@ -105,6 +109,15 @@ class Parser:
         while self.check_type('NEWLINE'):
             self.advance()
 
+    def expect_statement_end(self, context: str = "al final de la instrucción"):
+        """Consume NEWLINE o permite cerrar la sentencia ante DEDENT/EOF."""
+        if self.check_type('NEWLINE'):
+            self.advance()
+        elif not self.check_type('DEDENT', 'EOF'):
+            raise self.error(
+                f"Se esperaba salto de línea {context} pero se encontró {self.describe(self.current)}"
+            )
+
     def parse(self) -> Tuple[ASTNode, List[ParseError]]:
         program = ASTNode('Programa')
         while not self.at_end():
@@ -127,16 +140,16 @@ class Parser:
             return self.while_statement()
         if self.check('return'):
             return self.return_statement()
-        
+
         expr = self.expression()
-        self.expect_type('NEWLINE', "al final de la instrucción")
+        self.expect_statement_end("al final de la instrucción")
         return ASTNode('SentenciaExpresion', children=[expr], line=expr.line, column=expr.column)
 
     def function_decl(self) -> ASTNode:
         tok = self.advance()
         id_tok = self.expect_id("como nombre de función")
         self.expect('(', "después del nombre de la función")
-        
+
         params = []
         if not self.check(')'):
             param_tok = self.expect_id()
@@ -145,11 +158,11 @@ class Parser:
                 self.advance()
                 param_tok = self.expect_id()
                 params.append(ASTNode('Parametro', value=param_tok.value, line=param_tok.line, column=param_tok.column))
-                
+
         self.expect(')', "al cerrar parámetros")
         self.expect(':', "al iniciar el bloque de la función")
         body = self.block()
-        
+
         return ASTNode('Funcion', value=id_tok.value, children=[ASTNode('Parametros', children=params), body], line=tok.line, column=tok.column)
 
     def if_statement(self) -> ASTNode:
@@ -157,15 +170,15 @@ class Parser:
         cond = self.expression()
         self.expect(':', "después de la condición del 'if'")
         body = self.block()
-        
+
         children = [ASTNode('Condicion', children=[cond]), ASTNode('Entonces', children=[body])]
-        
+
         if self.check('else'):
             self.advance()
             self.expect(':', "después de 'else'")
             else_body = self.block()
             children.append(ASTNode('SiNo', children=[else_body]))
-            
+
         return ASTNode('If', children=children, line=tok.line, column=tok.column)
 
     def while_statement(self) -> ASTNode:
@@ -178,9 +191,9 @@ class Parser:
     def return_statement(self) -> ASTNode:
         tok = self.advance()
         val = None
-        if not self.check_type('NEWLINE'):
+        if not self.check_type('NEWLINE', 'DEDENT', 'EOF'):
             val = self.expression()
-        self.expect_type('NEWLINE', "al final del return")
+        self.expect_statement_end("al final del return")
         return ASTNode('Return', children=[val] if val else [], line=tok.line, column=tok.column)
 
     def block(self) -> ASTNode:
@@ -189,7 +202,8 @@ class Parser:
         stmts = []
         while not self.check_type('DEDENT') and not self.at_end():
             self.consume_newlines()
-            if self.check_type('DEDENT'): break
+            if self.check_type('DEDENT'):
+                break
             stmts.append(self.statement())
         self.expect_type('DEDENT', "al cerrar el bloque")
         return ASTNode('Bloque', children=stmts)
@@ -251,7 +265,7 @@ class Parser:
         tok = self.advance()
         if tok.type in LITERALS:
             return ASTNode(LITERALS[tok.type], value=tok.value, line=tok.line, column=tok.column)
-            
+
         if tok.type == 'ID':
             if self.check('('):
                 self.advance()
@@ -264,10 +278,10 @@ class Parser:
                 self.expect(')', "al cerrar parámetros de función")
                 return ASTNode('Llamada', value=tok.value, children=args, line=tok.line, column=tok.column)
             return ASTNode('Variable', value=tok.value, line=tok.line, column=tok.column)
-            
+
         if tok.value == '(':
             expr = self.expression()
             self.expect(')', "para cerrar paréntesis")
             return expr
-            
+
         raise self.error(f"Se esperaba una expresión, pero se encontró {self.describe(tok)}")
