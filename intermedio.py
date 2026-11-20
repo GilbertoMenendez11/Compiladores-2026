@@ -11,9 +11,7 @@ from typing import NamedTuple
 
 from parser import ASTNode
 
-# ==============================================================================
 # 1. ESTRUCTURAS DE DATOS
-# ==============================================================================
 
 
 class Quad(NamedTuple):
@@ -58,10 +56,7 @@ ARITHMETIC_OPS = {"+", "-", "*", "/", "%"}
 DEFAULTS = {"int": "0", "float": "0.0", "string": '""'}
 BUILTINS = {"imprimir", "print"}
 
-
-# ==============================================================================
 # 2. GENERADOR
-# ==============================================================================
 
 
 class IntermediateCodeGenerator:
