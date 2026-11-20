@@ -1,0 +1,37 @@
+# Prueba integral de Fase 4 (Codigo intermedio y ejecucion en MARS)
+
+def factorial(n):
+    if n <= 1:
+        return 1
+    else:
+        return n * factorial(n - 1)
+
+def suma_pares(maximo):
+    suma = 0
+    i = 0
+    while i <= maximo:
+        if i % 2 == 0:
+            suma = suma + i
+        i = i + 1
+    return suma
+
+def main():
+    fact = factorial(5)
+    pares = suma_pares(10)
+    div_real = 10 / 4
+    modulo = 10 % 3
+    negativo = -fact
+    negacion = not 0
+
+    saludo = "Hola " + "MARS"
+    iguales = saludo == "Hola MARS"
+    distintos = saludo != "Otro"
+
+    imprimir("Factorial:", fact)
+    imprimir("Suma pares:", pares)
+    imprimir("Division:", div_real)
+    imprimir("Modulo:", modulo)
+    imprimir("Negativo:", negativo)
+    imprimir("Not 0:", negacion)
+    print(saludo, iguales, distintos)
+    return

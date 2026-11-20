@@ -1,0 +1,5 @@
+# Prueba de error en tiempo de ejecucion: division entre cero
+a = 25
+b = 0
+c = a / b
+imprimir(c)
