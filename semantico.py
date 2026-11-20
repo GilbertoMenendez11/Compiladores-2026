@@ -2,11 +2,8 @@
 
 Fase 3 del proyecto Compiladores-2026.
 
-El parser actual no tiene declaraciones con tipos explicitos: una asignacion
-introduce una variable y el tipo se infiere a partir de su primera asignacion.
-Los parametros se consideran de tipo ``any`` porque la gramatica no permite
-anotaciones de tipo. ``any`` evita rechazar operaciones cuyo tipo depende de
-un argumento recibido en tiempo de ejecucion.
+Decora cada nodo de expresion y funcion del AST con el atributo `.type`
+para su consumo en la Fase 4 (generacion de codigo intermedio y MIPS).
 """
 
 from typing import Dict, List, NamedTuple, Optional, Tuple
@@ -107,7 +104,6 @@ def assignable(target: str, value: str) -> bool:
         return True
     if target == value:
         return True
-    # Se permite la conversion segura de int a float, pero no al reves.
     return target == "float" and value == "int"
 
 
@@ -118,7 +114,7 @@ def binary_result(op: str, left: str, right: str) -> str:
 
     if op in ("==", "!="):
         if ANY in (left, right) or left == right or (left in NUMERIC and right in NUMERIC):
-            return "int"  # los booleanos se representan como valores numericos
+            return "int"
         return ERROR
 
     if op in ("<", "<=", ">", ">="):
@@ -126,15 +122,20 @@ def binary_result(op: str, left: str, right: str) -> str:
             return "int"
         return ERROR
 
-    if op == "+" and left == right == "string":
-        return "string"
+    if op == "+" and (left == "string" or right == "string"):
+        if left in ("string", ANY) and right in ("string", ANY):
+            return "string"
+        return ERROR
+
+    if op == "/" and left in (*NUMERIC, ANY) and right in (*NUMERIC, ANY):
+        return "float"
 
     if left == ANY or right == ANY:
+        if op in ("+", "-", "*", "%") and "float" in (left, right):
+            return "float"
         return ANY
 
     if left in NUMERIC and right in NUMERIC:
-        if op == "/":
-            return "float"
         if op in ("+", "-", "*", "%"):
             return "float" if "float" in (left, right) else "int"
 
@@ -170,15 +171,16 @@ class SemanticAnalyzer:
         method = getattr(self, f"visit_{node.kind}", None)
         if method is None:
             raise NotImplementedError(f"Falta implementar visit_{node.kind}")
-        return method(node)
+        result = method(node)
+        if isinstance(result, str):
+            node.type = result
+        return result
 
     def visit_children(self, node: ASTNode):
         for child in node.children:
             self.visit(child)
 
     def visit_Programa(self, node: ASTNode):
-        # Registrar primero las funciones globales permite llamadas adelantadas
-        # y recursion, aunque la funcion aparezca mas abajo en el archivo.
         for child in node.children:
             if child.kind == "Funcion":
                 self._register_function(child, global_scope=True)
@@ -190,7 +192,6 @@ class SemanticAnalyzer:
         params_node = node.children[0] if node.children else ASTNode("Parametros")
         param_names = [p.value for p in params_node.children]
 
-        # La gramatica actual no declara tipos de parametros.
         symbol = Symbol(
             node.value,
             "funcion",
@@ -208,11 +209,9 @@ class SemanticAnalyzer:
         params_node, body = node.children
         symbol = self.table.lookup(node.value)
         if id(node) not in self._predeclared:
-            # Las funciones anidadas no se registran en la primera pasada global.
             self._register_function(node)
             symbol = self.table.lookup(node.value)
         if not self._predeclared.get(id(node), False):
-            # Ya se reporto la redeclaracion durante el registro.
             return
         if symbol is None or symbol.category != "funcion":
             return
@@ -223,6 +222,7 @@ class SemanticAnalyzer:
 
         self.table.open_scope(f"funcion:{node.value}")
         for param in params_node.children:
+            param.type = ANY
             parameter = Symbol(param.value, "parametro", ANY, self.table.current_scope, param.line)
             previous = self.table.declare(parameter)
             if previous is not None:
@@ -233,9 +233,9 @@ class SemanticAnalyzer:
         self.table.close_scope()
 
         return_type = self._infer_return_type(return_types, node)
+        node.type = return_type
         if symbol is not None:
             updated = symbol._replace(type=return_type)
-            # La funcion puede estar en el ambito global o en uno anidado.
             self.table.replace(symbol, updated)
         self.current_function = previous_function
 
@@ -262,12 +262,9 @@ class SemanticAnalyzer:
     # ----- Ambitos y sentencias -----
 
     def visit_Bloque(self, node: ASTNode):
-        # En Python solo las funciones y el nivel global crean ambitos;
-        # los bloques de def, if, else y while comparten el ambito actual.
         self.visit_children(node)
 
     def visit_If(self, node: ASTNode):
-        """If -> [Condicion, Entonces, SiNo?] (estructura de la Fase 2 actual)."""
         condition = node.children[0].children[0]
         self.check_condition(condition, "if")
         for branch in node.children[1:]:
@@ -302,24 +299,26 @@ class SemanticAnalyzer:
         value_type = self.visit(node.children[0])
         if value_type == "void":
             self.error(f"No se puede asignar a '{node.value}' el resultado de una funcion void", node)
-            return
+            return ERROR
 
         existing = self.table.lookup_local(node.value)
 
         if existing is not None and existing.category == "funcion":
             self.error(f"No se puede asignar un valor al nombre de funcion '{node.value}'", node)
-            return
+            return ERROR
 
         if existing is None:
             symbol = Symbol(node.value, "variable", value_type, self.table.current_scope, node.line)
             self.table.declare(symbol)
-            return
+            return value_type
 
         if not assignable(existing.type, value_type):
             self.error(
                 f"No se puede asignar un valor de tipo '{value_type}' a la variable '{node.value}' de tipo '{existing.type}'",
                 node,
             )
+            return ERROR
+        return existing.type
 
     def visit_Variable(self, node: ASTNode):
         symbol = self.table.lookup(node.value)
@@ -362,7 +361,6 @@ class SemanticAnalyzer:
         return ERROR
 
     def visit_Llamada(self, node: ASTNode):
-        # Se analizan siempre los argumentos, incluso si la funcion no existe.
         argument_types = [self.visit(argument) for argument in node.children]
         for index, argument_type in enumerate(argument_types, start=1):
             if argument_type == "void":
