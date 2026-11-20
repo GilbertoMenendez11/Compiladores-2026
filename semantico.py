@@ -76,6 +76,10 @@ class SymbolTable:
                 return scope[name]
         return None
 
+    def lookup_local(self, name: str) -> Optional[Symbol]:
+        """Busca unicamente en el ambito actual."""
+        return self.scopes[-1][1].get(name)
+
     def replace(self, old: Symbol, new: Symbol):
         """Actualiza un simbolo en su ambito y en el historial de impresion."""
         for _, scope in self.scopes:
@@ -149,11 +153,11 @@ class SemanticAnalyzer:
         self.errors: List[SemanticError] = []
         self.current_function: Optional[Symbol] = None
         self._return_stack: List[List[str]] = []
-        self._scope_counter = 0
         self._predeclared: Dict[int, bool] = {}
 
-        # Funcion predefinida: imprimir(...) acepta cualquier cantidad y tipo.
+        # Funciones predefinidas: aceptan cualquier cantidad y tipo de argumentos.
         self.table.declare(Symbol("imprimir", "funcion", "void", "-", 0, variadic=True))
+        self.table.declare(Symbol("print", "funcion", "void", "-", 0, variadic=True))
 
     def error(self, message: str, node: ASTNode):
         self.errors.append(SemanticError(message, node.line, node.column))
@@ -187,8 +191,14 @@ class SemanticAnalyzer:
         param_names = [p.value for p in params_node.children]
 
         # La gramatica actual no declara tipos de parametros.
-        symbol = Symbol(node.value, "funcion", ANY, "global" if global_scope else self.table.current_scope,
-                        node.line, tuple(ANY for _ in param_names))
+        symbol = Symbol(
+            node.value,
+            "funcion",
+            ANY,
+            "global" if global_scope else self.table.current_scope,
+            node.line,
+            tuple(ANY for _ in param_names),
+        )
         previous = self.table.declare(symbol)
         self._predeclared[id(node)] = previous is None
         if previous is not None:
@@ -252,10 +262,9 @@ class SemanticAnalyzer:
     # ----- Ambitos y sentencias -----
 
     def visit_Bloque(self, node: ASTNode):
-        self._scope_counter += 1
-        self.table.open_scope(f"bloque:{node.line or self._scope_counter}:{self._scope_counter}")
+        # En Python solo las funciones y el nivel global crean ambitos;
+        # los bloques de def, if, else y while comparten el ambito actual.
         self.visit_children(node)
-        self.table.close_scope()
 
     def visit_If(self, node: ASTNode):
         """If -> [Condicion, Entonces, SiNo?] (estructura de la Fase 2 actual)."""
@@ -294,7 +303,8 @@ class SemanticAnalyzer:
         if value_type == "void":
             self.error(f"No se puede asignar a '{node.value}' el resultado de una funcion void", node)
             return
-        existing = self.table.lookup(node.value)
+
+        existing = self.table.lookup_local(node.value)
 
         if existing is not None and existing.category == "funcion":
             self.error(f"No se puede asignar un valor al nombre de funcion '{node.value}'", node)
@@ -302,19 +312,14 @@ class SemanticAnalyzer:
 
         if existing is None:
             symbol = Symbol(node.value, "variable", value_type, self.table.current_scope, node.line)
-            previous = self.table.declare(symbol)
-            if previous is not None:
-                self.error(f"La variable '{node.value}' ya fue declarada en este ambito", node)
+            self.table.declare(symbol)
             return
 
         if not assignable(existing.type, value_type):
-            self.error(f"No se puede asignar un valor de tipo '{value_type}' a la variable '{node.value}' de tipo '{existing.type}'", node)
-            return
-
-        # Una variable int puede promoverse a float al recibir un float.
-        new_type = "float" if existing.type == "int" and value_type == "float" else existing.type
-        if new_type != existing.type:
-            self.table.replace(existing, existing._replace(type=new_type))
+            self.error(
+                f"No se puede asignar un valor de tipo '{value_type}' a la variable '{node.value}' de tipo '{existing.type}'",
+                node,
+            )
 
     def visit_Variable(self, node: ASTNode):
         symbol = self.table.lookup(node.value)
