@@ -215,7 +215,7 @@ class Parser:
     def if_statement(self) -> ASTNode:
         tok = self.advance()
         cond = self.expression()
-        self.expect(":", "después de la condición del 'if'")
+        self.expect(":", f"después de la condición de '{tok.value}'")
         body = self.block()
 
         children = [
@@ -223,7 +223,9 @@ class Parser:
             ASTNode("Entonces", children=[body]),
         ]
 
-        if self.check("else"):
+        if self.check("elif"):
+            children.append(ASTNode("SiNo", children=[self.if_statement()]))
+        elif self.check("else"):
             self.advance()
             self.expect(":", "después de 'else'")
             else_body = self.block()
