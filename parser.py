@@ -162,6 +162,9 @@ class Parser:
             return self.while_statement()
         if self.check("return"):
             return self.return_statement()
+        if self.check("else", "elif"):
+            tok = self.current
+            raise self.error(f"'{tok.value}' sin 'if' correspondiente", tok)
 
         expr = self.expression()
         self.expect_statement_end("al final de la instrucción")
