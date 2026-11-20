@@ -242,7 +242,7 @@ class SemanticAnalyzer:
             )
             previous = self.table.declare(parameter)
             if previous is not None:
-                self.error(f"El parametro '{param.value}' esta repetido", node)
+                self.error(f"El parametro '{param.value}' esta repetido", param)
 
         self.visit(body)
         return_types = self._return_stack.pop()
