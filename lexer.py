@@ -44,7 +44,7 @@ class Lexer:
         ("OP_ARITH", r"\*\*|//|[+\-*/%]"),
         ("DELIM", r"[()\[\],:]"),
         ("ID", r"[a-zA-Z_][a-zA-Z0-9_]*"),
-        ("SKIP", r"[ \t]+"),
+        ("SKIP", r"[ \t\r]+"),
         ("MISMATCH", r"."),
     ]
 
@@ -91,7 +91,7 @@ class Lexer:
 
             if at_line_start:
                 if kind == "SKIP":
-                    pending_indent += len(value.replace("\t", "    "))
+                    pending_indent += len(value.replace("\r", "").replace("\t", "    "))
                     continue
                 elif kind == "NEWLINE":
                     line_start = mo.end()
@@ -113,7 +113,9 @@ class Lexer:
                             tokens.append(Token("DEDENT", "", line_num, col_num))
                         if indent_stack[-1] != pending_indent:
                             errors.append(
-                                LexicalError("Error de indentación", "", line_num, col_num)
+                                LexicalError(
+                                    "Error de indentación", "", line_num, col_num
+                                )
                             )
                     at_line_start = False
                     pending_indent = 0
