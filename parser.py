@@ -258,7 +258,11 @@ class Parser:
             self.consume_newlines()
             if self.check_type("DEDENT"):
                 break
-            stmts.append(self.statement())
+            try:
+                stmts.append(self.statement())
+            except ParseError as err:
+                self.errors.append(err)
+                self.synchronize()
         self.expect_type("DEDENT", "al cerrar el bloque")
         return ASTNode("Bloque", children=stmts)
 
