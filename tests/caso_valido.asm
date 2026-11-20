@@ -107,7 +107,7 @@ f_sumaPares:
     sw $ra, 8($sp)
     sw $fp, 0($sp)
     move $fp, $sp
-    addi $sp, $sp, -112
+    addi $sp, $sp, -56
     lw $t0, __depth
     addi $t0, $t0, 1
     sw $t0, __depth
@@ -129,79 +129,38 @@ L3:
     # if_false t5 goto L4
     lw $t0, -24($fp)
     beq $t0, $zero, L4
-    # t6 = (float) i
+    # t6 = i % 2
     lw $t0, -16($fp)
-    mtc1 $t0, $f0
-    cvt.d.w $f0, $f0
-    s.d $f0, -32($fp)
-    # t7 = (float) 2
-    li $t0, 2
-    mtc1 $t0, $f0
-    cvt.d.w $f0, $f0
-    s.d $f0, -40($fp)
-    # t8 = t6 / t7
-    l.d $f0, -32($fp)
-    l.d $f2, -40($fp)
-    mtc1 $zero, $f4
-    cvt.d.w $f4, $f4
-    c.eq.d $f2, $f4
-    bc1t __err_div
-    div.d $f0, $f0, $f2
-    s.d $f0, -48($fp)
-    # t9 = (float) 2
-    li $t0, 2
-    mtc1 $t0, $f0
-    cvt.d.w $f0, $f0
-    s.d $f0, -56($fp)
-    # t10 = t8 * t9
-    l.d $f0, -48($fp)
-    l.d $f2, -56($fp)
-    mul.d $f0, $f0, $f2
-    s.d $f0, -64($fp)
-    # t11 = (float) i
-    lw $t0, -16($fp)
-    mtc1 $t0, $f0
-    cvt.d.w $f0, $f0
-    s.d $f0, -72($fp)
-    # t12 = t11 - t10
-    l.d $f0, -72($fp)
-    l.d $f2, -64($fp)
-    sub.d $f0, $f0, $f2
-    s.d $f0, -80($fp)
-    # t13 = (float) 0
-    li $t0, 0
-    mtc1 $t0, $f0
-    cvt.d.w $f0, $f0
-    s.d $f0, -88($fp)
-    # t14 = t12 == t13
-    l.d $f0, -80($fp)
-    l.d $f2, -88($fp)
-    li $t0, 1
-    c.eq.d $f0, $f2
-    bc1t __fcmp_1
-    li $t0, 0
-__fcmp_1:
-    sw $t0, -96($fp)
-    # if_false t14 goto L5
-    lw $t0, -96($fp)
+    li $t1, 2
+    beq $t1, $zero, __err_div
+    div $t0, $t1
+    mfhi $t0
+    sw $t0, -32($fp)
+    # t7 = t6 == 0
+    lw $t0, -32($fp)
+    li $t1, 0
+    seq $t0, $t0, $t1
+    sw $t0, -40($fp)
+    # if_false t7 goto L5
+    lw $t0, -40($fp)
     beq $t0, $zero, L5
-    # t15 = suma + i
+    # t8 = suma + i
     lw $t0, -8($fp)
     lw $t1, -16($fp)
     add $t0, $t0, $t1
-    sw $t0, -104($fp)
-    # suma = t15
-    lw $t0, -104($fp)
+    sw $t0, -48($fp)
+    # suma = t8
+    lw $t0, -48($fp)
     sw $t0, -8($fp)
     # L5:
 L5:
-    # t16 = i + 1
+    # t9 = i + 1
     lw $t0, -16($fp)
     li $t1, 1
     add $t0, $t0, $t1
-    sw $t0, -112($fp)
-    # i = t16
-    lw $t0, -112($fp)
+    sw $t0, -56($fp)
+    # i = t9
+    lw $t0, -56($fp)
     sw $t0, -16($fp)
     # goto L3
     j L3
@@ -238,11 +197,11 @@ f_main:
     addi $sp, $sp, -8
     li $t0, 5
     sw $t0, 0($sp)
-    # t17 = call factorial, 1
+    # t10 = call factorial, 1
     jal f_factorial
     addi $sp, $sp, 8           # saca los argumentos
     sw $v0, -8($fp)
-    # x = t17
+    # x = t10
     lw $t0, -8($fp)
     sw $t0, -16($fp)
     # param limite
@@ -250,62 +209,62 @@ f_main:
     la $t9, g_limite
     lw $t0, 0($t9)
     sw $t0, 0($sp)
-    # t18 = call sumaPares, 1
+    # t11 = call sumaPares, 1
     jal f_sumaPares
     addi $sp, $sp, 8           # saca los argumentos
     sw $v0, -24($fp)
-    # y = t18
+    # y = t11
     lw $t0, -24($fp)
     sw $t0, -32($fp)
-    # t19 = x + y
+    # t12 = x + y
     lw $t0, -16($fp)
     lw $t1, -32($fp)
     add $t0, $t0, $t1
     sw $t0, -40($fp)
-    # t20 = (float) t19
+    # t13 = (float) t12
     lw $t0, -40($fp)
     mtc1 $t0, $f0
     cvt.d.w $f0, $f0
     s.d $f0, -48($fp)
-    # t21 = t20 * tasa
+    # t14 = t13 * tasa
     l.d $f0, -48($fp)
     la $t9, g_tasa
     l.d $f2, 0($t9)
     mul.d $f0, $f0, $f2
     s.d $f0, -56($fp)
-    # t22 = -1
+    # t15 = -1
     li $t0, 1
     neg $t0, $t0
     sw $t0, -64($fp)
-    # t23 = (float) t22
+    # t16 = (float) t15
     lw $t0, -64($fp)
     mtc1 $t0, $f0
     cvt.d.w $f0, $f0
     s.d $f0, -72($fp)
-    # t24 = t21 - t23
+    # t17 = t14 - t16
     l.d $f0, -56($fp)
     l.d $f2, -72($fp)
     sub.d $f0, $f0, $f2
     s.d $f0, -80($fp)
-    # total = t24
+    # total = t17
     l.d $f0, -80($fp)
     s.d $f0, -88($fp)
     # L6:
 L6:
-    # t25 = x != 0
+    # t18 = x != 0
     lw $t0, -16($fp)
     li $t1, 0
     sne $t0, $t0, $t1
     sw $t0, -96($fp)
-    # if_false t25 goto L7
+    # if_false t18 goto L7
     lw $t0, -96($fp)
     beq $t0, $zero, L7
-    # t26 = x - 1
+    # t19 = x - 1
     lw $t0, -16($fp)
     li $t1, 1
     sub $t0, $t0, $t1
     sw $t0, -104($fp)
-    # x = t26
+    # x = t19
     lw $t0, -104($fp)
     sw $t0, -16($fp)
     # goto L6
