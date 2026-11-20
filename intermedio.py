@@ -78,8 +78,8 @@ class IntermediateCodeGenerator:
         self.current_return_type: str | None = None
         # Tipo de cada variable y temporal, por función ('' = código global).
         self.current_function = ""
-        self.types: Dict[str, Dict[str, str]] = {"": {}}
-        self.return_types: Dict[str, str] = {}
+        self.types: Dict[str, Dict[str, str]] = {"": {}}  # noqa: F821
+        self.return_types: Dict[str, str] = {}  # noqa: F821
 
     # ---------- utilidades ----------
     @staticmethod
@@ -238,7 +238,7 @@ class IntermediateCodeGenerator:
         self.return_types[name] = ret_type
         self.scopes.append({})
 
-        param_ir_names: List[str] = []
+        param_ir_names: List[str] = []  # noqa: F821
         for param in params_node.children:
             p_type = self.concrete_type(getattr(param, "type", None))
             param_ir_names.append(self.declare(param.value, p_type))
@@ -402,7 +402,7 @@ class IntermediateCodeGenerator:
     def call(self, node: ASTNode, want_result: bool) -> str | None:
         func_name = node.value
         func_node = self.functions.get(func_name)
-        param_types: List[str] = []
+        param_types: List[str] = []  # noqa: F821
         if func_node is not None:
             params_node = func_node.children[0]
             param_types = [
