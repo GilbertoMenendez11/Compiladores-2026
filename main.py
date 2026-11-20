@@ -1,16 +1,23 @@
+import os
 import sys
 
+from intermedio import IntermediateCodeGenerator, format_code, format_quads
 from lexer import Lexer
+from mips import MipsGenerator
 from parser import Parser
 from semantico import SemanticAnalyzer, format_table
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Uso: python main.py <ruta_archivo>")
+    args = sys.argv[1:]
+    mostrar_cuadruplos = "--cuadruplos" in args
+    archivos = [a for a in args if a != "--cuadruplos"]
+
+    if len(archivos) != 1:
+        print("Uso: python main.py <ruta_archivo> [--cuadruplos]")
         return
 
-    ruta_archivo = sys.argv[1]
+    ruta_archivo = archivos[0]
 
     try:
         with open(ruta_archivo, "r", encoding="utf-8") as archivo:
@@ -37,19 +44,14 @@ def main():
             f"en Posición: [Línea {error.line}, Col {error.column}]"
         )
 
-    # Si hay errores léxicos, el programa se detiene aquí y no pasa a la Fase 2
     if errores:
         return
 
     print("\n-----FASE 2: ANÁLISIS SINTÁCTICO-----")
 
-    # Instanciamos el parser con los tokens obtenidos en la Fase 1
     parser = Parser(tokens)
-
-    # Ejecutamos el análisis sintáctico (ahora devuelve el AST y los errores)
     ast, errores_sintacticos = parser.parse()
 
-    # Evaluamos si el parser reportó errores recuperados (Modo Pánico)
     if errores_sintacticos:
         for error in errores_sintacticos:
             print(
@@ -57,31 +59,59 @@ def main():
                 f"en Posición: [Línea {error.line}, Col {error.column}]"
             )
         print(f"Errores sintácticos: {len(errores_sintacticos)}")
-    else:
-        print("Análisis sintáctico completado sin errores.")
-        # Imprime el Árbol de Sintaxis Abstracta.
-        print(ast.pretty())
-        print("Errores sintácticos: 0")
+        return
 
-        print("\n-----FASE 3: ANÁLISIS SEMÁNTICO-----")
-        semantic = SemanticAnalyzer()
-        tabla, errores_semanticos = semantic.analyze(ast)
+    print("Análisis sintáctico completado sin errores.")
+    print(ast.pretty())
+    print("Errores sintácticos: 0")
 
-        print("\n-----TABLA DE SÍMBOLOS-----")
-        print(format_table(tabla))
+    print("\n-----FASE 3: ANÁLISIS SEMÁNTICO-----")
+    semantic = SemanticAnalyzer()
+    tabla, errores_semanticos = semantic.analyze(ast)
 
-        if errores_semanticos:
-            for error in errores_semanticos:
-                print(
-                    f"[ERROR SEMÁNTICO] {error.message} "
-                    f"en Posición: [Línea {error.line}, Col {error.column}]"
-                )
-            print(f"Errores semánticos: {len(errores_semanticos)}")
-            print("Resultado: COMPILACIÓN CON ERRORES SEMÁNTICOS")
-        else:
-            print("Análisis semántico completado sin errores.")
-            print("Errores semánticos: 0")
-            print("Resultado: COMPILACIÓN EXITOSA")
+    print("\n-----TABLA DE SÍMBOLOS-----")
+    print(format_table(tabla))
+
+    if errores_semanticos:
+        for error in errores_semanticos:
+            print(
+                f"[ERROR SEMÁNTICO] {error.message} "
+                f"en Posición: [Línea {error.line}, Col {error.column}]"
+            )
+        print(f"Errores semánticos: {len(errores_semanticos)}")
+        print("Resultado: COMPILACIÓN CON ERRORES SEMÁNTICOS")
+        return
+
+    print("Análisis semántico completado sin errores.")
+    print("Errores semánticos: 0")
+
+    print("\n-----FASE 4A: CÓDIGO INTERMEDIO-----")
+    ir_gen = IntermediateCodeGenerator()
+    cuadruplos = ir_gen.generate(ast)
+    print(format_code(cuadruplos))
+
+    if mostrar_cuadruplos:
+        print("\n-----TABLA DE CUÁDRUPLOS-----")
+        print(format_quads(cuadruplos))
+
+    print("\n-----FASE 4B: GENERACIÓN DE CÓDIGO MIPS-----")
+    try:
+        mips_gen = MipsGenerator(cuadruplos, ir_gen.types, ir_gen.return_types)
+        codigo_mips = mips_gen.generate()
+    except NotImplementedError as error:
+        print(f"[PENDIENTE EN MIPS] {error}")
+        return
+
+    ruta_salida = os.path.splitext(ruta_archivo)[0] + ".asm"
+    try:
+        with open(ruta_salida, "w", encoding="utf-8") as salida:
+            salida.write(codigo_mips)
+    except OSError as error:
+        print(f"Error al escribir el archivo MIPS: {error}")
+        return
+
+    print(f"Archivo MIPS generado en: {ruta_salida}")
+    print("Resultado: COMPILACIÓN EXITOSA")
 
 
 if __name__ == "__main__":
