@@ -139,10 +139,12 @@ class Parser:
         
         params = []
         if not self.check(')'):
-            params.append(ASTNode('Parametro', value=self.expect_id().value))
+            param_tok = self.expect_id()
+            params.append(ASTNode('Parametro', value=param_tok.value, line=param_tok.line, column=param_tok.column))
             while self.check(','):
                 self.advance()
-                params.append(ASTNode('Parametro', value=self.expect_id().value))
+                param_tok = self.expect_id()
+                params.append(ASTNode('Parametro', value=param_tok.value, line=param_tok.line, column=param_tok.column))
                 
         self.expect(')', "al cerrar parámetros")
         self.expect(':', "al iniciar el bloque de la función")

@@ -1,0 +1,13 @@
+# Programa sintacticamente correcto con errores semanticos intencionales
+edad = 20
+nombre = "Ada"
+edad = "veinte"
+resultado = desconocida(1)
+if nombre:
+    temporal = 5
+
+def sin_retorno():
+    return 10
+    return "texto"
+
+sin_retorno(1)
