@@ -6,8 +6,6 @@ PROYECTO FINAL: COMPILADORES - FASE 1 Análisis Léxico (Con Indentación)
 import re
 from typing import NamedTuple
 
-# 1. ESTRUCTURAS DE DATOS
-
 
 class Token(NamedTuple):
     """Estructura para representar un Token detectado."""
@@ -27,20 +25,15 @@ class LexicalError(NamedTuple):
     column: int
 
 
-# 2. CLASE PRINCIPAL DEL ANALIZADOR LÉXICO
-
-
 class Lexer:
     """
-    Analizador Léxico (Scanner).
-    Transforma una cadena de código fuente en una lista de Tokens y Errores Léxicos
+    Analizador Léxico (Scanner) para un subconjunto de Python.
+    Transforma el código fuente en Tokens y Errores Léxicos,
     incluyendo soporte para NEWLINE, INDENT y DEDENT.
     """
 
     TOKEN_SPECIFICATION = [  # noqa: RUF012
         ("NEWLINE", r"\n"),
-        ("COMMENT_MULTI", r"/\*[\s\S]*?\*/"),
-        ("COMMENT_SINGLE", r"//.*"),
         ("COMMENT", r"#.*"),
         ("FLOAT_LITERAL", r"\d+\.\d+"),
         ("INT_LITERAL", r"\d+"),
@@ -49,7 +42,7 @@ class Lexer:
         ("OP_REL", r"==|!=|<=|>=|<|>"),
         ("OP_ASSIGN", r"\+=|-=|\*=|/=|//=|%=|="),
         ("OP_ARITH", r"\*\*|//|[+\-*/%]"),
-        ("DELIM", r"[()\[\]{},:;.@]"),
+        ("DELIM", r"[()\[\],:]"),
         ("ID", r"[a-zA-Z_][a-zA-Z0-9_]*"),
         ("SKIP", r"[ \t]+"),
         ("MISMATCH", r"."),
@@ -63,7 +56,6 @@ class Lexer:
         "while": "PR_WHILE",
         "for": "PR_FOR",
         "return": "PR_RETURN",
-        "print": "PR_PRINT",
         "True": "PR_TRUE",
         "False": "PR_FALSE",
         "None": "PR_NONE",
@@ -72,10 +64,6 @@ class Lexer:
         "not": "OP_LOGIC",
         "is": "OP_LOGIC",
         "in": "OP_LOGIC",
-        "int": "PR_INT",
-        "float": "PR_FLOAT",
-        "void": "PR_VOID",
-        "string": "PR_STRING",
     }
 
     def __init__(self, code: str):
@@ -103,19 +91,16 @@ class Lexer:
 
             if at_line_start:
                 if kind == "SKIP":
-                    pending_indent = len(value.replace('\t', '    '))
+                    pending_indent += len(value.replace("\t", "    "))
                     continue
                 elif kind == "NEWLINE":
                     line_start = mo.end()
                     line_num += 1
+                    pending_indent = 0
                     tokens.append(Token("NEWLINE", value, line_num - 1, col_num))
                     continue
-                elif kind in ("COMMENT", "COMMENT_SINGLE", "COMMENT_MULTI"):
-                    if kind == "COMMENT_MULTI":
-                        newlines = value.count("\n")
-                        if newlines > 0:
-                            line_num += newlines
-                            line_start = position + value.rfind("\n") + 1
+                elif kind == "COMMENT":
+                    pending_indent = 0
                     continue
                 else:
                     current_indent = indent_stack[-1]
@@ -127,7 +112,9 @@ class Lexer:
                             indent_stack.pop()
                             tokens.append(Token("DEDENT", "", line_num, col_num))
                         if indent_stack[-1] != pending_indent:
-                            errors.append(LexicalError("Error de indentación", "", line_num, col_num))
+                            errors.append(
+                                LexicalError("Error de indentación", "", line_num, col_num)
+                            )
                     at_line_start = False
                     pending_indent = 0
 
@@ -139,14 +126,7 @@ class Lexer:
                 pending_indent = 0
                 continue
 
-            elif kind == "COMMENT_MULTI":
-                newlines = value.count("\n")
-                if newlines > 0:
-                    line_num += newlines
-                    line_start = position + value.rfind("\n") + 1
-                continue
-
-            elif kind in ("SKIP", "COMMENT", "COMMENT_SINGLE"):
+            elif kind in ("SKIP", "COMMENT"):
                 continue
 
             elif kind == "ID":
