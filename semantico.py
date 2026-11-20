@@ -6,23 +6,24 @@ Decora cada nodo de expresion y funcion del AST con el atributo `.type`
 para su consumo en la Fase 4 (generacion de codigo intermedio y MIPS).
 """
 
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import NamedTuple
 
 from parser import ASTNode
-
 
 # ---------------------------------------------------------------------------
 # 1. ESTRUCTURAS DE DATOS
 # ---------------------------------------------------------------------------
 
+
 class Symbol(NamedTuple):
     """Entrada de la tabla de simbolos."""
+
     name: str
-    category: str                 # variable, parametro o funcion
-    type: str                     # tipo de dato o tipo de retorno
+    category: str  # variable, parametro o funcion
+    type: str  # tipo de dato o tipo de retorno
     scope: str
     line: int
-    params: Tuple[str, ...] = ()
+    params: tuple[str, ...] = ()
     variadic: bool = False
 
     def type_label(self) -> str:
@@ -41,8 +42,8 @@ class SymbolTable:
     """Pila de ambitos. Cada ambito es un diccionario nombre -> Symbol."""
 
     def __init__(self):
-        self.scopes: List[Tuple[str, Dict[str, Symbol]]] = [("global", {})]
-        self.all_symbols: List[Symbol] = []
+        self.scopes: list[tuple[str, dict[str, Symbol]]] = [("global", {})]
+        self.all_symbols: list[Symbol] = []
 
     @property
     def current_scope(self) -> str:
@@ -55,7 +56,7 @@ class SymbolTable:
         if len(self.scopes) > 1:
             self.scopes.pop()
 
-    def declare(self, symbol: Symbol) -> Optional[Symbol]:
+    def declare(self, symbol: Symbol) -> Symbol | None:
         """Declara en el ambito actual; retorna el simbolo previo si se repite."""
         current = self.scopes[-1][1]
         previous = current.get(symbol.name)
@@ -66,14 +67,14 @@ class SymbolTable:
             self.all_symbols.append(symbol)
         return None
 
-    def lookup(self, name: str) -> Optional[Symbol]:
+    def lookup(self, name: str) -> Symbol | None:
         """Busca desde el ambito mas interno hasta el global."""
         for _, scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
         return None
 
-    def lookup_local(self, name: str) -> Optional[Symbol]:
+    def lookup_local(self, name: str) -> Symbol | None:
         """Busca unicamente en el ambito actual."""
         return self.scopes[-1][1].get(name)
 
@@ -109,11 +110,15 @@ def assignable(target: str, value: str) -> bool:
 
 def binary_result(op: str, left: str, right: str) -> str:
     """Calcula el tipo resultante de una operacion binaria."""
-    if ERROR in (left, right):
+    if ERROR in (left, right) or "void" in (left, right):
         return ERROR
 
     if op in ("==", "!="):
-        if ANY in (left, right) or left == right or (left in NUMERIC and right in NUMERIC):
+        if (
+            ANY in (left, right)
+            or left == right
+            or (left in NUMERIC and right in NUMERIC)
+        ):
             return "int"
         return ERROR
 
@@ -130,13 +135,18 @@ def binary_result(op: str, left: str, right: str) -> str:
     if op == "/" and left in (*NUMERIC, ANY) and right in (*NUMERIC, ANY):
         return "float"
 
+    if op == "%":
+        if left in ("int", ANY) and right in ("int", ANY):
+            return "int"
+        return ERROR
+
     if left == ANY or right == ANY:
-        if op in ("+", "-", "*", "%") and "float" in (left, right):
+        if op in ("+", "-", "*") and "float" in (left, right):
             return "float"
         return ANY
 
     if left in NUMERIC and right in NUMERIC:
-        if op in ("+", "-", "*", "%"):
+        if op in ("+", "-", "*"):
             return "float" if "float" in (left, right) else "int"
 
     return ERROR
@@ -146,15 +156,16 @@ def binary_result(op: str, left: str, right: str) -> str:
 # 3. ANALIZADOR SEMANTICO
 # ---------------------------------------------------------------------------
 
+
 class SemanticAnalyzer:
     """Recorre el AST y verifica nombres, ambitos, tipos y llamadas."""
 
     def __init__(self):
         self.table = SymbolTable()
-        self.errors: List[SemanticError] = []
-        self.current_function: Optional[Symbol] = None
-        self._return_stack: List[List[str]] = []
-        self._predeclared: Dict[int, bool] = {}
+        self.errors: list[SemanticError] = []
+        self.current_function: Symbol | None = None
+        self._return_stack: list[list[str]] = []
+        self._predeclared: dict[int, bool] = {}
 
         # Funciones predefinidas: aceptan cualquier cantidad y tipo de argumentos.
         self.table.declare(Symbol("imprimir", "funcion", "void", "-", 0, variadic=True))
@@ -163,7 +174,7 @@ class SemanticAnalyzer:
     def error(self, message: str, node: ASTNode):
         self.errors.append(SemanticError(message, node.line, node.column))
 
-    def analyze(self, ast: ASTNode) -> Tuple[SymbolTable, List[SemanticError]]:
+    def analyze(self, ast: ASTNode) -> tuple[SymbolTable, list[SemanticError]]:
         self.visit(ast)
         return self.table, self.errors
 
@@ -203,7 +214,10 @@ class SemanticAnalyzer:
         previous = self.table.declare(symbol)
         self._predeclared[id(node)] = previous is None
         if previous is not None:
-            self.error(f"La funcion '{node.value}' ya fue declarada en el ambito '{self.table.current_scope}'", node)
+            self.error(
+                f"La funcion '{node.value}' ya fue declarada en el ambito '{self.table.current_scope}'",
+                node,
+            )
 
     def visit_Funcion(self, node: ASTNode):
         params_node, body = node.children
@@ -223,10 +237,12 @@ class SemanticAnalyzer:
         self.table.open_scope(f"funcion:{node.value}")
         for param in params_node.children:
             param.type = ANY
-            parameter = Symbol(param.value, "parametro", ANY, self.table.current_scope, param.line)
+            parameter = Symbol(
+                param.value, "parametro", ANY, self.table.current_scope, param.line
+            )
             previous = self.table.declare(parameter)
             if previous is not None:
-                self.error(f"El parametro '{param.value}' esta repetido", node)
+                self.error(f"El parametro '{param.value}' esta repetido", param)
 
         self.visit(body)
         return_types = self._return_stack.pop()
@@ -239,13 +255,16 @@ class SemanticAnalyzer:
             self.table.replace(symbol, updated)
         self.current_function = previous_function
 
-    def _infer_return_type(self, types: List[str], node: ASTNode) -> str:
+    def _infer_return_type(self, types: list[str], node: ASTNode) -> str:
         if not types:
             return "void"
         has_void = "void" in types
         values = [t for t in types if t != "void" and t != ERROR]
         if has_void and values:
-            self.error(f"La funcion '{node.value}' mezcla return con valor y return sin valor", node)
+            self.error(
+                f"La funcion '{node.value}' mezcla return con valor y return sin valor",
+                node,
+            )
             return ERROR
         if not values:
             return ERROR if ERROR in types else "void"
@@ -256,7 +275,10 @@ class SemanticAnalyzer:
             return "float" if "float" in unique else "int"
         if len(unique) == 1:
             return values[0]
-        self.error(f"La funcion '{node.value}' retorna tipos incompatibles: {', '.join(sorted(unique))}", node)
+        self.error(
+            f"La funcion '{node.value}' retorna tipos incompatibles: {', '.join(sorted(unique))}",
+            node,
+        )
         return ERROR
 
     # ----- Ambitos y sentencias -----
@@ -273,7 +295,10 @@ class SemanticAnalyzer:
     def check_condition(self, expr: ASTNode, keyword: str):
         result_type = self.visit(expr)
         if result_type not in NUMERIC and result_type not in (ANY, ERROR):
-            self.error(f"La condicion del '{keyword}' debe ser numerica, se encontro '{result_type}'", expr)
+            self.error(
+                f"La condicion del '{keyword}' debe ser numerica, se encontro '{result_type}'",
+                expr,
+            )
 
     def visit_While(self, node: ASTNode):
         condition, body = node.children
@@ -298,17 +323,25 @@ class SemanticAnalyzer:
     def visit_Asignacion(self, node: ASTNode):
         value_type = self.visit(node.children[0])
         if value_type == "void":
-            self.error(f"No se puede asignar a '{node.value}' el resultado de una funcion void", node)
+            self.error(
+                f"No se puede asignar a '{node.value}' el resultado de una funcion void",
+                node,
+            )
             return ERROR
 
         existing = self.table.lookup_local(node.value)
 
         if existing is not None and existing.category == "funcion":
-            self.error(f"No se puede asignar un valor al nombre de funcion '{node.value}'", node)
+            self.error(
+                f"No se puede asignar un valor al nombre de funcion '{node.value}'",
+                node,
+            )
             return ERROR
 
         if existing is None:
-            symbol = Symbol(node.value, "variable", value_type, self.table.current_scope, node.line)
+            symbol = Symbol(
+                node.value, "variable", value_type, self.table.current_scope, node.line
+            )
             self.table.declare(symbol)
             return value_type
 
@@ -326,7 +359,9 @@ class SemanticAnalyzer:
             self.error(f"La variable '{node.value}' no ha sido declarada", node)
             return ERROR
         if symbol.category == "funcion":
-            self.error(f"'{node.value}' es una funcion; debe invocarse con parentesis", node)
+            self.error(
+                f"'{node.value}' es una funcion; debe invocarse con parentesis", node
+            )
             return ERROR
         return symbol.type
 
@@ -346,7 +381,10 @@ class SemanticAnalyzer:
         right_type = self.visit(node.children[1])
         result = binary_result(node.value, left_type, right_type)
         if result == ERROR and left_type != ERROR and right_type != ERROR:
-            self.error(f"Operacion '{node.value}' no valida entre tipos '{left_type}' y '{right_type}'", node)
+            self.error(
+                f"Operacion '{node.value}' no valida entre tipos '{left_type}' y '{right_type}'",
+                node,
+            )
         return result
 
     def visit_OpUnaria(self, node: ASTNode):
@@ -357,14 +395,20 @@ class SemanticAnalyzer:
             return operand_type
         if node.value == "not" and (operand_type in NUMERIC or operand_type == ANY):
             return "int"
-        self.error(f"El operador unario '{node.value}' no admite el tipo '{operand_type}'", node)
+        self.error(
+            f"El operador unario '{node.value}' no admite el tipo '{operand_type}'",
+            node,
+        )
         return ERROR
 
     def visit_Llamada(self, node: ASTNode):
         argument_types = [self.visit(argument) for argument in node.children]
         for index, argument_type in enumerate(argument_types, start=1):
             if argument_type == "void":
-                self.error(f"El argumento {index} de '{node.value}' no puede ser el resultado de una funcion void", node)
+                self.error(
+                    f"El argumento {index} de '{node.value}' no puede ser el resultado de una funcion void",
+                    node,
+                )
 
         symbol = self.table.lookup(node.value)
         if symbol is None:
@@ -375,20 +419,36 @@ class SemanticAnalyzer:
             return ERROR
 
         if not symbol.variadic and len(argument_types) != len(symbol.params):
-            self.error(f"La funcion '{node.value}' espera {len(symbol.params)} argumento(s), pero recibio {len(argument_types)}", node)
+            self.error(
+                f"La funcion '{node.value}' espera {len(symbol.params)} argumento(s), pero recibio {len(argument_types)}",
+                node,
+            )
         elif not symbol.variadic:
-            for index, (expected, actual) in enumerate(zip(symbol.params, argument_types), start=1):
+            for index, (expected, actual) in enumerate(
+                zip(symbol.params, argument_types), start=1
+            ):
                 if not assignable(expected, actual):
-                    self.error(f"El argumento {index} de '{node.value}' debe ser '{expected}', se recibio '{actual}'", node)
+                    self.error(
+                        f"El argumento {index} de '{node.value}' debe ser '{expected}', se recibio '{actual}'",
+                        node,
+                    )
         return symbol.type
 
 
 def format_table(table: SymbolTable) -> str:
     """Devuelve la tabla de simbolos en formato tabular."""
     headers = ("Nombre", "Categoria", "Tipo", "Ambito", "Linea")
-    rows = [(s.name, s.category, s.type_label(), s.scope, str(s.line)) for s in table.all_symbols]
-    widths = [max([len(header)] + [len(row[i]) for row in rows]) for i, header in enumerate(headers)]
+    rows = [
+        (s.name, s.category, s.type_label(), s.scope, str(s.line))
+        for s in table.all_symbols
+    ]
+    widths = [
+        max([len(header)] + [len(row[i]) for row in rows])
+        for i, header in enumerate(headers)
+    ]
     widths = [max(width, 6) for width in widths]
-    fmt = lambda row: " | ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip()
+    fmt = lambda row: " | ".join(
+        cell.ljust(width) for cell, width in zip(row, widths)
+    ).rstrip()
     separator = "-+-".join("-" * width for width in widths)
     return "\n".join([fmt(headers), separator] + [fmt(row) for row in rows])

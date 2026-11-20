@@ -78,8 +78,8 @@ class IntermediateCodeGenerator:
         self.current_return_type: str | None = None
         # Tipo de cada variable y temporal, por función ('' = código global).
         self.current_function = ""
-        self.types: dict[str, dict[str, str]] = {"": {}}
-        self.return_types: dict[str, str] = {}
+        self.types: Dict[str, Dict[str, str]] = {"": {}}
+        self.return_types: Dict[str, str] = {}
 
     # ---------- utilidades ----------
     @staticmethod
@@ -172,6 +172,34 @@ class IntermediateCodeGenerator:
             elif n.kind == "Asignacion":
                 self.global_names.add(n.value)
 
+    def _infer_param_types(self, ast: ASTNode):
+        """Infiere el tipo concreto de cada parámetro según las llamadas en el AST."""
+        inferred: dict[str, list[str | None]] = {
+            name: [None] * len(fn.children[0].children)
+            for name, fn in self.functions.items()
+        }
+
+        def walk(node: ASTNode):
+            if node.kind == "Llamada" and node.value in inferred:
+                slots = inferred[node.value]
+                for i, arg in enumerate(node.children):
+                    if i >= len(slots):
+                        break
+                    arg_type = getattr(arg, "type", None)
+                    if arg_type not in ("int", "float", "string"):
+                        continue
+                    if slots[i] is None:
+                        slots[i] = arg_type
+                    elif {slots[i], arg_type} == {"int", "float"}:
+                        slots[i] = "float"
+            for child in node.children:
+                walk(child)
+
+        walk(ast)
+        self.param_types = {
+            name: [t or "int" for t in slots] for name, slots in inferred.items()
+        }
+
     # ---------- programa ----------
     def generate(self, ast: ASTNode) -> list[Quad]:
         """
@@ -182,6 +210,7 @@ class IntermediateCodeGenerator:
         """
         self._collect_globals(ast)
         self._collect_functions(ast)
+        self._infer_param_types(ast)
 
         for n in ast.children:
             if n.kind != "Funcion":
@@ -209,7 +238,7 @@ class IntermediateCodeGenerator:
         self.return_types[name] = ret_type
         self.scopes.append({})
 
-        param_ir_names: list[str] = []
+        param_ir_names: List[str] = []
         for param in params_node.children:
             p_type = self.concrete_type(getattr(param, "type", None))
             param_ir_names.append(self.declare(param.value, p_type))
@@ -373,7 +402,7 @@ class IntermediateCodeGenerator:
     def call(self, node: ASTNode, want_result: bool) -> str | None:
         func_name = node.value
         func_node = self.functions.get(func_name)
-        param_types: list[str] = []
+        param_types: List[str] = []
         if func_node is not None:
             params_node = func_node.children[0]
             param_types = [

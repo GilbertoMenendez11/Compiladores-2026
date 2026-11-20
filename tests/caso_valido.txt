@@ -14,7 +14,7 @@ def sumaPares(max):
     suma = 0
     i = 0
     while i <= max:
-        if (i - (i / 2) * 2) == 0:
+        if (i % 2) == 0: 
             suma = suma + i
         i = i + 1
     return suma
